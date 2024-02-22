@@ -10,15 +10,20 @@
 
 <body>
 <?php
-function display_board($board) {
+function display_board($board, $game_over) {
     echo '<table>';
     for ($i = 0; $i < 3; $i++) {
         echo '<tr>';
         for ($j = 0; $j < 3; $j++) {
             $cell_value = $board[$i * 3 + $j];
             if ($cell_value === ' ') {
-                $url = 'ttt.php?name=' . urlencode($_GET['name']) . '&board=' . urlencode(substr_replace($board, 'X', $i * 3 + $j, 1>
-                echo "<td><a href=\"$url\">&nbsp;</a></td>";
+                $new_board = substr_replace($board, 'X', $i * 3 + $j, 1);
+                $url = 'ttt.php?name=' . urlencode($_GET['name']) . '&board=' . urlencode($new_board);
+                if ($game_over) {
+                    echo "<td>&nbsp;</td>"; // Make cell not clickable
+                } else {
+                    echo "<td><a href=\"$url\">&nbsp;</a></td>";
+                }
             } else {
                 echo "<td>$cell_value</td>";
             }
@@ -47,13 +52,21 @@ function check_win($board, $player) {
 }
 
 function make_computer_move($board) {
-    // Simple AI: Select the first available empty cell
-    for ($i = 0; $i < 9; $i++) {
-        if ($board[$i] === ' ') {
-            return substr_replace($board, 'O', $i, 1);
+    // Check if it's the computer's turn (i.e., the number of 'X's is greater than the number of 'O's)
+    $num_X = substr_count($board, 'X');
+    $num_O = substr_count($board, 'O');
+    if ($num_X > $num_O) {
+        // Simple AI: Select the first available empty cell
+        for ($i = 0; $i < 9; $i++) {
+            if ($board[$i] === ' ') {
+                $new_board = substr_replace($board, 'O', $i, 1);
+                $url = 'ttt.php?name=' . urlencode($_GET['name']) . '&board=' . urlencode($new_board);
+                header('Location: ' . $url); // Redirect to update URL
+                return; // Exit to prevent further output
+            }
         }
     }
-    return $board; // No empty cells, shouldn't happen in a normal game
+    return $board; // No need to make a move, return the board as it is
 }
 
 if (isset($_GET['name']) && !empty($_GET['name'])) {
@@ -64,25 +77,25 @@ if (isset($_GET['name']) && !empty($_GET['name'])) {
     if (isset($_GET['board'])) {
         $board = urldecode($_GET['board']);
         if (check_win($board, 'X')) {
-            display_board($board);
+            display_board($board, true);
             echo "<p>You won!</p>";
             echo '<p><a href="ttt.php?name=' . urlencode($name) . '">Play again</a></p>';
         } else {
             $board = make_computer_move($board);
             if (check_win($board, 'O')) {
-                display_board($board);
+                display_board($board, true);
                 echo "<p>I won!</p>";
                 echo '<p><a href="ttt.php?name=' . urlencode($name) . '">Play again</a></p>';
             } else if (strpos($board, ' ') === false) {
-                display_board($board);
+                display_board($board, true);
                 echo "<p>WINNER: NONE. A STRANGE GAME. THE ONLY WINNING MOVE IS NOT TO PLAY.</p>";
             } else {
-                display_board($board);
+                display_board($board, false);
             }
         }
     } else {
         $board = '         '; // 9 spaces for empty board
-        display_board($board);
+        display_board($board, false);
     }
 } else {
     echo '<h1>Welcome to Tic Tac Toe</h1>';
@@ -90,6 +103,7 @@ if (isset($_GET['name']) && !empty($_GET['name'])) {
     echo '<form action="ttt.php" method="GET">';
     echo '<label for="name">Enter your name:</label><br>';
     echo '<input type="text" id="name" name="name"><br>';
+    echo '<input type="hidden" name="board" value="         ">';
     echo '<input type="submit" value="Submit">';
     echo '</form>';
     echo '</div>';
